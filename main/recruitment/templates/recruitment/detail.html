@@ -1,0 +1,689 @@
+{% extends 'recruitment/base.html' %}
+
+{% block title %}{{ application.full_name }} | AKGEC Staff Recruitment{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ── Back button ───────────────────────────────────────────── */
+    .back-btn-area { margin-bottom: 2rem; }
+    .btn-back {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        color: var(--text-secondary); text-decoration: none;
+        font-weight: 500; font-size: 0.95rem;
+        transition: all 0.2s ease;
+        padding: 0.5rem 1rem; border-radius: 8px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--glass-border);
+    }
+    .btn-back:hover {
+        color: var(--text-primary);
+        background: rgba(255,255,255,0.08);
+        border-color: rgba(255,255,255,0.15);
+    }
+    .btn-back svg { width: 16px; height: 16px; }
+
+    /* ── Profile header ────────────────────────────────────────── */
+    .profile-header {
+        display: flex; gap: 2.5rem; align-items: center;
+        margin-bottom: 3rem;
+        background: rgba(15,23,42,0.4);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px; padding: 2rem;
+    }
+    .profile-img-container {
+        width: 140px; height: 140px;
+        border-radius: 14px; overflow: hidden;
+        border: 2px solid var(--accent-green);
+        background: #1e293b; flex-shrink: 0;
+        box-shadow: 0 8px 24px rgba(16,185,129,0.2);
+    }
+    .profile-img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-img-placeholder {
+        width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--text-secondary);
+    }
+    .profile-img-placeholder svg { width: 48px; height: 48px; }
+
+    .profile-meta h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 0.25rem; }
+    .profile-sub { font-size: 1.1rem; color: var(--accent-green); font-weight: 600; margin-bottom: 0.75rem; }
+    .profile-badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .profile-badge {
+        display: inline-block;
+        padding: 0.2rem 0.65rem; border-radius: 6px;
+        font-size: 0.8rem; font-weight: 600; border: 1px solid;
+    }
+    .badge-id     { background: rgba(6,182,212,0.1);  border-color: rgba(6,182,212,0.25);  color: var(--accent-teal); }
+    .badge-cat    { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.25); color: var(--accent-green); }
+    .badge-decl   { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.25); color: var(--accent-green); }
+    .badge-nodecl { background: rgba(239,68,68,0.1);  border-color: rgba(239,68,68,0.25);  color: #f87171; }
+
+    /* ── Two-column layout ─────────────────────────────────────── */
+    .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; }
+    @media (max-width: 1024px) {
+        .dashboard-grid { grid-template-columns: 1fr; }
+        .profile-header { flex-direction: column; text-align: center; gap: 1.5rem; }
+        .profile-badges { justify-content: center; }
+    }
+
+    /* ── Section cards ─────────────────────────────────────────── */
+    .section-card {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 14px; padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    .section-title {
+        font-size: 1.25rem; font-weight: 700;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        padding-bottom: 0.75rem;
+        display: flex; align-items: center; gap: 0.5rem;
+        color: var(--text-primary);
+    }
+    .section-title svg { width: 20px; height: 20px; stroke: var(--accent-green); flex-shrink: 0; }
+    .section-note { font-size: 0.75rem; color: var(--text-secondary); font-weight: 400; margin-left: 0.5rem; }
+
+    /* ── Info grid ─────────────────────────────────────────────── */
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; }
+    .info-item { display: flex; flex-direction: column; gap: 0.25rem; }
+    .info-label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .info-value { font-size: 0.95rem; font-weight: 500; color: var(--text-primary); }
+    .info-value.empty { color: var(--text-secondary); font-style: italic; font-weight: 400; }
+    .span-2 { grid-column: span 2; }
+    @media (max-width: 600px) { .span-2 { grid-column: span 1; } }
+
+    /* ── Education timeline ────────────────────────────────────── */
+    .edu-timeline { display: flex; flex-direction: column; gap: 1.75rem; }
+    .edu-node {
+        position: relative; padding-left: 1.5rem;
+        border-left: 2px solid rgba(16,185,129,0.2);
+    }
+    .edu-node::before {
+        content: ''; position: absolute; left: -6px; top: 4px;
+        width: 10px; height: 10px; border-radius: 50%;
+        background: var(--accent-green);
+        box-shadow: 0 0 8px var(--accent-green);
+    }
+    .edu-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.25rem; }
+    .edu-title  { font-weight: 700; font-size: 1.05rem; }
+    .edu-year   { font-weight: 600; font-size: 0.85rem; color: var(--accent-teal); white-space: nowrap; }
+
+    /* ── Experience cards ──────────────────────────────────────── */
+    .exp-card {
+        background: rgba(0,0,0,0.2);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 10px; padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    .exp-card:last-child { margin-bottom: 0; }
+    .exp-header {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;
+    }
+    .exp-org  { font-weight: 700; font-size: 1rem; }
+    .exp-desg { font-size: 0.85rem; color: var(--accent-green); font-weight: 600; }
+    .exp-dates {
+        font-size: 0.8rem; color: var(--accent-teal);
+        background: rgba(6,182,212,0.1);
+        border: 1px solid rgba(6,182,212,0.2);
+        padding: 0.15rem 0.5rem; border-radius: 6px;
+        white-space: nowrap;
+    }
+    .exp-current {
+        font-size: 0.8rem; color: var(--accent-green);
+        background: rgba(16,185,129,0.1);
+        border: 1px solid rgba(16,185,129,0.2);
+        padding: 0.15rem 0.5rem; border-radius: 6px;
+    }
+
+    /* ── Reference cards ───────────────────────────────────────── */
+    .ref-card {
+        background: rgba(0,0,0,0.2);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 10px; padding: 1rem 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+    .ref-card:last-child { margin-bottom: 0; }
+    .ref-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.4rem; }
+
+    /* ── Document panel ────────────────────────────────────────── */
+    .doc-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .doc-item {
+        display: flex; align-items: center; justify-content: space-between;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--glass-border);
+        padding: 0.75rem 1rem; border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    .doc-item:hover {
+        background: rgba(255,255,255,0.06);
+        border-color: rgba(255,255,255,0.12);
+    }
+    .doc-info { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+    .doc-icon {
+        width: 32px; height: 32px; border-radius: 6px;
+        background: rgba(6,182,212,0.1);
+        display: flex; align-items: center; justify-content: center;
+        color: var(--accent-teal); flex-shrink: 0; font-size: 1rem;
+    }
+    .doc-name {
+        font-size: 0.88rem; font-weight: 600;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .btn-download {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        background: rgba(16,185,129,0.1); color: var(--accent-green);
+        border: 1px solid rgba(16,185,129,0.2);
+        padding: 0.4rem 0.8rem; border-radius: 6px;
+        font-size: 0.8rem; font-weight: 600;
+        text-decoration: none; transition: all 0.2s ease;
+        white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-download:hover {
+        background: var(--accent-green); color: #fff;
+        border-color: var(--accent-green);
+    }
+    .doc-missing {
+        font-size: 0.8rem; color: var(--text-secondary);
+        font-style: italic; flex-shrink: 0;
+    }
+
+    /* ── Subsection label ──────────────────────────────────────── */
+    .subsection-label {
+        font-size: 0.9rem; color: var(--accent-teal);
+        margin: 1.5rem 0 0.75rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.4px;
+    }
+
+    /* ── Statement box ─────────────────────────────────────────── */
+    .statement-box {
+        background: rgba(0,0,0,0.15);
+        padding: 1rem; border-radius: 8px;
+        font-size: 0.95rem; line-height: 1.7;
+        white-space: pre-wrap; word-break: break-word;
+    }
+
+    /* ── EPF box ───────────────────────────────────────────────── */
+    .epf-row {
+        display: flex; align-items: center; gap: 0.75rem;
+        background: rgba(0,0,0,0.15);
+        padding: 0.75rem 1rem; border-radius: 8px;
+    }
+    .epf-yes { color: var(--accent-green); font-weight: 700; }
+    .epf-no  { color: var(--text-secondary); font-weight: 500; }
+
+    /* ── Declaration block ─────────────────────────────────────── */
+    .declaration-block {
+        background: rgba(0,0,0,0.15);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 10px; padding: 1.25rem;
+        display: flex; align-items: flex-start; gap: 1rem;
+    }
+    .decl-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .decl-accepted { color: var(--accent-green); font-weight: 700; font-size: 0.95rem; }
+    .decl-pending  { color: #f87171;              font-weight: 700; font-size: 0.95rem; }
+    .decl-date     { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Back button -->
+<div class="back-btn-area">
+    <a href="{% url 'application-list' %}" class="btn-back">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+        </svg>
+        Back to Applications
+    </a>
+</div>
+
+<!-- ── Profile Header ──────────────────────────────────────────── -->
+<div class="profile-header">
+    <div class="profile-img-container">
+        {% if application.photograph %}
+            <img src="{{ application.photograph.url }}" alt="{{ application.full_name }}" class="profile-img">
+        {% else %}
+            <div class="profile-img-placeholder">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+                </svg>
+            </div>
+        {% endif %}
+    </div>
+    <div class="profile-meta">
+        <h1>{{ application.full_name }}</h1>
+        <div class="profile-sub">{{ application.post_applied_for }}</div>
+        <div class="profile-badges">
+            <span class="profile-badge badge-id">APP-{{ application.id }}</span>
+            <span class="profile-badge badge-cat">{{ application.category }}</span>
+            {% if application.declaration_accepted %}
+                <span class="profile-badge badge-decl">✓ Declaration Accepted</span>
+            {% else %}
+                <span class="profile-badge badge-nodecl">✗ Declaration Pending</span>
+            {% endif %}
+            <span style="color:var(--text-secondary); font-size:0.85rem; align-self:center;">
+                Submitted: {{ application.created_at|date:"d F Y @ H:i" }}
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+<!-- ══════════════════════ LEFT COLUMN ══════════════════════════ -->
+<div>
+
+    <!-- ── Section 1: Basic Details ─────────────────────────────── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+            </svg>
+            Basic &amp; Personal Details
+        </h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Surname</span>
+                <span class="info-value">{{ application.surname }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">First Name</span>
+                <span class="info-value">{{ application.first_name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Middle Name</span>
+                <span class="info-value {% if not application.middle_name %}empty{% endif %}">
+                    {{ application.middle_name|default:"—" }}
+                </span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Father's Name</span>
+                <span class="info-value">{{ application.father_name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Spouse Name</span>
+                <span class="info-value {% if not application.spouse_name %}empty{% endif %}">
+                    {{ application.spouse_name|default:"—" }}
+                </span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Caste / Category</span>
+                <span class="info-value">{{ application.category }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Date of Birth</span>
+                <span class="info-value">{{ application.dob|date:"d F Y" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Marital Status</span>
+                <span class="info-value">{{ application.marital_status }}</span>
+            </div>
+            {% if application.date_of_marriage %}
+            <div class="info-item">
+                <span class="info-label">Date of Marriage</span>
+                <span class="info-value">{{ application.date_of_marriage|date:"d F Y" }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── Section 2: Contact Details ───────────────────────────── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/>
+            </svg>
+            Contact Details
+        </h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Email Address</span>
+                <span class="info-value">{{ application.email }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Mobile Number</span>
+                <span class="info-value">{{ application.mobile_number }}</span>
+            </div>
+            <div class="info-item span-2">
+                <span class="info-label">Correspondence Address</span>
+                <span class="info-value">
+                    {{ application.correspondence_address_line1 }}{% if application.correspondence_address_line2 %}, {{ application.correspondence_address_line2 }}{% endif %}
+                </span>
+            </div>
+            <div class="info-item span-2">
+                <span class="info-label">Permanent Address</span>
+                <span class="info-value">
+                    {{ application.permanent_address_line1 }}{% if application.permanent_address_line2 %}, {{ application.permanent_address_line2 }}{% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Section 3: Education ──────────────────────────────────── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.9c4.956 0 9.31-2.42 12-6.4a60.434 60.434 0 00-.491-6.347M12 3.75l10.386 3.03a1.125 1.125 0 010 2.185L12 12.015l-10.386-3.03a1.125 1.125 0 010-2.185L12 3.75z"/>
+            </svg>
+            Educational Qualifications
+        </h2>
+
+        {% if application.education %}
+        <div class="edu-timeline">
+            {% for edu in application.education %}
+            <div class="edu-node">
+                <div class="edu-header">
+                    <span class="edu-title">{{ edu.examination_name }}</span>
+                    <span class="edu-year">{{ edu.year_of_passing }}</span>
+                </div>
+                <div class="info-grid" style="grid-template-columns: repeat(auto-fill, minmax(190px,1fr));">
+                    <div class="info-item">
+                        <span class="info-label">School / College</span>
+                        <span class="info-value">{{ edu.school_college }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Board / University</span>
+                        <span class="info-value">{{ edu.board_university }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Medium</span>
+                        <span class="info-value">{{ edu.medium }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Division</span>
+                        <span class="info-value">{{ edu.division }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Percentage</span>
+                        <span class="info-value">{{ edu.percentage }}%</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+            <p class="info-value empty">No education records provided.</p>
+        {% endif %}
+    </div>
+
+    <!-- ── Section 4: Experience ─────────────────────────────────── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875A1.125 1.125 0 013.75 18.4v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.45.258-.717.258H3.75c-.266 0-.523-.093-.717-.258m19.5 0a2.18 2.18 0 01-.75 1.661v3.5c0 .621-.504 1.125-1.125 1.125H1.125A1.125 1.125 0 010 18.4v-3.5a2.18 2.18 0 01.75-1.661m19.5 0a2.18 2.18 0 00.75-1.66V8.706c0-1.081-.768-2.015-1.837-2.175a48.11 48.11 0 00-3.413-.387m0 0a48.58 48.58 0 00-11.474 0"/>
+            </svg>
+            Work Experience
+        </h2>
+
+        {% if application.experience %}
+            {% for job in application.experience %}
+            <div class="exp-card">
+                <div class="exp-header">
+                    <div>
+                        <div class="exp-org">{{ job.organization }}</div>
+                        <div class="exp-desg">{{ job.designation }}</div>
+                    </div>
+                    {% if job.to_date %}
+                        <span class="exp-dates">{{ job.from_date }} → {{ job.to_date }}</span>
+                    {% else %}
+                        <span class="exp-current">{{ job.from_date }} → Present</span>
+                    {% endif %}
+                </div>
+                <div class="info-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px,1fr));">
+                    <div class="info-item span-2">
+                        <span class="info-label">Job Profile</span>
+                        <span class="info-value">{{ job.job_profile }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Last Salary Drawn</span>
+                        <span class="info-value {% if not job.last_salary %}empty{% endif %}">
+                            {{ job.last_salary|default:"Not provided" }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="info-value empty">No experience records provided.</p>
+        {% endif %}
+    </div>
+
+    <!-- ── Section 5: Additional Information ────────────────────── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
+            </svg>
+            Additional Information
+        </h2>
+
+        <div class="info-item" style="margin-bottom:1.5rem;">
+            <span class="info-label">Extra-Curricular / Co-Curricular Activities</span>
+            {% if application.extra_curricular %}
+                <div class="statement-box" style="margin-top:0.5rem;">{{ application.extra_curricular }}</div>
+            {% else %}
+                <span class="info-value empty">Not provided</span>
+            {% endif %}
+        </div>
+
+        <div class="info-item" style="margin-bottom:1.5rem;">
+            <span class="info-label">Why Suitable for the Post</span>
+            <div class="statement-box" style="margin-top:0.5rem;">{{ application.why_suitable }}</div>
+        </div>
+
+        <div class="subsection-label">EPF Details</div>
+        <div class="epf-row">
+            {% if application.epf_member %}
+                <span class="epf-yes">✓ EPF Member</span>
+                <span class="info-value" style="color:var(--accent-teal);">
+                    Membership No: {{ application.epf_number }}
+                </span>
+            {% else %}
+                <span class="epf-no">Not an EPF Member</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── Section 6: References ─────────────────────────────────── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
+            </svg>
+            References
+        </h2>
+
+        {% if application.references %}
+            {% for ref in application.references %}
+            <div class="ref-card">
+                <div class="ref-name">{{ forloop.counter }}. {{ ref.name }}</div>
+                <div class="info-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px,1fr));">
+                    <div class="info-item span-2">
+                        <span class="info-label">Address</span>
+                        <span class="info-value">{{ ref.address }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Contact Number</span>
+                        <span class="info-value">{{ ref.contact_number }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="info-value empty">No references provided.</p>
+        {% endif %}
+    </div>
+
+    <!-- ── Section 7: Declaration ────────────────────────────────── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Declaration
+        </h2>
+        <div class="declaration-block">
+            <div class="decl-icon">
+                {% if application.declaration_accepted %}✅{% else %}⚠️{% endif %}
+            </div>
+            <div>
+                {% if application.declaration_accepted %}
+                    <div class="decl-accepted">Applicant has accepted the declaration.</div>
+                    <div class="decl-date">
+                        Signed on:
+                        {% if application.declaration_date %}
+                            {{ application.declaration_date|date:"d F Y" }}
+                        {% else %}
+                            <em>Date not recorded</em>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="decl-pending">Declaration has NOT been accepted.</div>
+                    <div class="decl-date">This application may be incomplete.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+<!-- ══════════════════════ END LEFT COLUMN ══════════════════════ -->
+
+<!-- ══════════════════════ RIGHT COLUMN ════════════════════════ -->
+<div>
+    <div class="section-card" style="position:sticky; top:90px;">
+        <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+            </svg>
+            Submitted Documents
+        </h2>
+
+        <!-- Primary attachments from model fields -->
+        <div class="doc-list">
+
+            <div class="doc-item">
+                <div class="doc-info">
+                    <div class="doc-icon">📄</div>
+                    <span class="doc-name">10th Certificate</span>
+                </div>
+                {% if application.attach_10th %}
+                    <a href="{{ application.attach_10th.url }}" target="_blank" class="btn-download">View</a>
+                {% else %}
+                    <span class="doc-missing">Not uploaded</span>
+                {% endif %}
+            </div>
+
+            <div class="doc-item">
+                <div class="doc-info">
+                    <div class="doc-icon">📄</div>
+                    <span class="doc-name">12th Certificate</span>
+                </div>
+                {% if application.attach_12th %}
+                    <a href="{{ application.attach_12th.url }}" target="_blank" class="btn-download">View</a>
+                {% else %}
+                    <span class="doc-missing">Not uploaded</span>
+                {% endif %}
+            </div>
+
+            <div class="doc-item">
+                <div class="doc-info">
+                    <div class="doc-icon">📄</div>
+                    <span class="doc-name">Diploma Certificate</span>
+                </div>
+                {% if application.attach_diploma %}
+                    <a href="{{ application.attach_diploma.url }}" target="_blank" class="btn-download">View</a>
+                {% else %}
+                    <span class="doc-missing">Not uploaded</span>
+                {% endif %}
+            </div>
+
+            <div class="doc-item">
+                <div class="doc-info">
+                    <div class="doc-icon">📄</div>
+                    <span class="doc-name">Graduation Certificate</span>
+                </div>
+                {% if application.attach_graduation %}
+                    <a href="{{ application.attach_graduation.url }}" target="_blank" class="btn-download">View</a>
+                {% else %}
+                    <span class="doc-missing">Not uploaded</span>
+                {% endif %}
+            </div>
+
+            <div class="doc-item">
+                <div class="doc-info">
+                    <div class="doc-icon">📄</div>
+                    <span class="doc-name">Post Graduation</span>
+                </div>
+                {% if application.attach_post_graduation %}
+                    <a href="{{ application.attach_post_graduation.url }}" target="_blank" class="btn-download">View</a>
+                {% else %}
+                    <span class="doc-missing">Not uploaded</span>
+                {% endif %}
+            </div>
+
+            <div class="doc-item">
+                <div class="doc-info">
+                    <div class="doc-icon">📄</div>
+                    <span class="doc-name">PAN Card</span>
+                </div>
+                {% if application.attach_pan_card %}
+                    <a href="{{ application.attach_pan_card.url }}" target="_blank" class="btn-download">View</a>
+                {% else %}
+                    <span class="doc-missing">Not uploaded</span>
+                {% endif %}
+            </div>
+
+            <div class="doc-item">
+                <div class="doc-info">
+                    <div class="doc-icon">📄</div>
+                    <span class="doc-name">Aadhaar Card</span>
+                </div>
+                {% if application.attach_aadhaar %}
+                    <a href="{{ application.attach_aadhaar.url }}" target="_blank" class="btn-download">View</a>
+                {% else %}
+                    <span class="doc-missing">Not uploaded</span>
+                {% endif %}
+            </div>
+
+            <div class="doc-item">
+                <div class="doc-info">
+                    <div class="doc-icon">📄</div>
+                    <span class="doc-name">Photograph</span>
+                </div>
+                {% if application.photograph %}
+                    <a href="{{ application.photograph.url }}" target="_blank" class="btn-download">View</a>
+                {% else %}
+                    <span class="doc-missing">Not uploaded</span>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <!-- Additional uploaded documents (StaffApplicationDocument) -->
+        {% if docs %}
+        <h3 style="font-size:0.85rem; color:var(--text-secondary); margin:1.5rem 0 0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+            Additional Files
+        </h3>
+        <div class="doc-list">
+            {% for doc in docs %}
+            <div class="doc-item">
+                <div class="doc-info">
+                    <div class="doc-icon">📁</div>
+                    <span class="doc-name">{{ doc.get_document_type_display }}</span>
+                </div>
+                <a href="{{ doc.file.url }}" target="_blank" class="btn-download">Download</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if not docs %}
+            <p class="info-value empty" style="text-align:center; padding:1rem 0;">No documents uploaded.</p>
+        {% endif %}
+    </div>
+</div>
+<!-- ══════════════════════ END RIGHT COLUMN ═════════════════════ -->
+
+</div>{# end dashboard-grid #}
+{% endblock %}

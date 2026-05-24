@@ -1,0 +1,36 @@
+services:
+  db:
+    image: mysql:8.0
+    volumes:
+      - mysql_data:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  web:
+    build: .
+    volumes:
+      # DO NOT bind-mount .:/app — it would overwrite the venv built inside the image.
+      # Only mount the data directories so uploads and static files persist.
+      - static_volume:/app/static
+      - media_volume:/app/media
+    env_file:
+      - .env
+    ports:
+      - "8112:8112"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+  static_volume:
+  media_volume:

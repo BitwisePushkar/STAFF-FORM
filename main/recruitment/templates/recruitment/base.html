@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AKGEC Staff Recruitment{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #062f22 100%);
+            --glass-bg: rgba(15, 23, 42, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-glow: rgba(16, 185, 129, 0.15);
+
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-green: #10b981;
+            --accent-green-hover: #34d399;
+            --accent-teal: #06b6d4;
+            --accent-teal-glow: rgba(6, 182, 212, 0.3);
+            --danger: #ef4444;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .ambient-glow-1 {
+            position: fixed; top: -10%; left: -10%;
+            width: 50vw; height: 50vw;
+            background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);
+            z-index: -1; pointer-events: none;
+        }
+        .ambient-glow-2 {
+            position: fixed; bottom: -10%; right: -10%;
+            width: 60vw; height: 60vw;
+            background: radial-gradient(circle, rgba(6,182,212,0.06) 0%, transparent 70%);
+            z-index: -1; pointer-events: none;
+        }
+
+        /* ── Navbar ────────────────────────────────────────────────── */
+        .navbar {
+            background: rgba(9, 13, 22, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1rem 2rem;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .nav-container {
+            max-width: 1400px; margin: 0 auto;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .nav-logo {
+            font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px;
+            color: var(--text-primary); text-decoration: none;
+            display: flex; align-items: center; gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        .nav-logo span {
+            background: linear-gradient(90deg, var(--accent-green) 0%, var(--accent-teal) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .nav-logo:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+        .nav-link {
+            color: var(--text-secondary); text-decoration: none;
+            font-weight: 500; font-size: 0.95rem;
+            transition: all 0.2s ease;
+            padding: 0.5rem 1rem; border-radius: 8px;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.05);
+        }
+        .nav-btn {
+            background: linear-gradient(90deg, var(--accent-green) 0%, #059669 100%);
+            color: #fff; padding: 0.6rem 1.2rem; border-radius: 8px;
+            font-weight: 600; border: none; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+            text-decoration: none; font-size: 0.9rem;
+            box-shadow: 0 4px 12px rgba(16,185,129,0.2);
+        }
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16,185,129,0.4);
+            background: linear-gradient(90deg, var(--accent-green-hover) 0%, var(--accent-green) 100%);
+        }
+
+        /* ── Layout ────────────────────────────────────────────────── */
+        .main-content {
+            max-width: 1400px; margin: 2.5rem auto;
+            padding: 0 2rem;
+            min-height: calc(100vh - 180px);
+        }
+
+        /* ── Footer ────────────────────────────────────────────────── */
+        .footer {
+            border-top: 1px solid var(--glass-border);
+            padding: 2rem; text-align: center;
+            color: var(--text-secondary); font-size: 0.9rem;
+            background: rgba(9,13,22,0.4); margin-top: 4rem;
+        }
+        .footer a { color: var(--accent-green); text-decoration: none; }
+
+        /* ── Glass panel ───────────────────────────────────────────── */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 2.5rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+
+        /* ── Scrollbar ─────────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+        @media (max-width: 768px) {
+            .navbar { padding: 1rem; }
+            .nav-links { display: none; }
+            .main-content { padding: 0 1rem; margin: 1.5rem auto; }
+            .glass-panel { padding: 1.5rem; }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="ambient-glow-1"></div>
+    <div class="ambient-glow-2"></div>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{% url 'application-list' %}" class="nav-logo">
+                AKGEC <span>Staff Portal</span>
+            </a>
+            <div class="nav-links">
+                <a href="{% url 'application-list' %}" class="nav-link {% block nav_list_active %}{% endblock %}">Applications</a>
+                <a href="/admin/" class="nav-link" target="_blank">Admin Panel</a>
+                <a href="{% url 'application-list' %}" class="nav-btn">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 Ajay Kumar Garg Engineering College. All rights reserved.</p>
+        <p style="margin-top:0.5rem; font-size:0.8rem; opacity:0.7;">Staff Recruitment Portal</p>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,12 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+venv
+.env
+media
+static
+Dockerfile
+docker-compose.yml
+Document 3.pdf
+*.pem
