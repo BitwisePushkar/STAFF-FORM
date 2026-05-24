@@ -1,25 +1,15 @@
 import re
 from datetime import date, timedelta, datetime
 from typing import Any
-
 from django.utils import timezone
 from rest_framework import serializers
-
 from .models import StaffApplication, StaffApplicationDocument
 
-
-# ------------------------------------------------------------------ #
-#  Constants                                                           #
-# ------------------------------------------------------------------ #
-
 PHONE_RE = re.compile(r"^\d{10}$")
-
 EPF_UAN_RE = re.compile(r"^\d{12}$")
 EPF_ACCOUNT_RE = re.compile(r"^[A-Z]{2}/[A-Z]{3,10}/\d{1,7}/\d{1,3}/\d{1,7}$")
-
 ALLOWED_FILE_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"}
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
-
 ALLOWED_MIME_TYPES = {
     "application/pdf",
     "image/jpeg",
@@ -27,52 +17,33 @@ ALLOWED_MIME_TYPES = {
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
-
 MAX_FILE_SIZE_MB = 5
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
-
 VALID_DIVISIONS = {"First", "Second", "Third", "Pass", "Distinction", "Grade"}
-
 MIN_AGE_YEARS = 18
 MAX_AGE_YEARS = 65
 
-
-# ------------------------------------------------------------------ #
-#  Reusable helpers                                                    #
-# ------------------------------------------------------------------ #
-
 def _is_blank(value: Any) -> bool:
-    """Return True if value is None, empty string, or whitespace-only string."""
     if value is None:
         return True
     if isinstance(value, str):
         return not value.strip()
     return False
 
-
 def _calculate_age(dob: date, today: date) -> int:
-    """Accurate age calculation accounting for leap years."""
     return today.year - dob.year - (
         (today.month, today.day) < (dob.month, dob.day)
     )
 
-
 def _validate_file(value, field_label: str):
-    """
-    Validates uploaded file extension, MIME type, and size.
-    Passes None through (optional fields).
-    Already-saved FieldFile objects on update are skipped.
-    """
     if value is None:
         return value
 
-    # FieldFile objects (already saved on update) skip re-validation
     if not hasattr(value, "size"):
         return value
 
     name: str = getattr(value, "name", "") or ""
 
-    # 1. Extension check
     if "." not in name:
         raise serializers.ValidationError(
             f"{field_label}: file must have an extension. "
@@ -87,14 +58,12 @@ def _validate_file(value, field_label: str):
             f"Allowed: {', '.join(sorted(ALLOWED_FILE_EXTENSIONS))}."
         )
 
-    # 2. MIME type check (browser-supplied, best-effort)
     content_type = getattr(value, "content_type", None)
     if content_type and content_type not in ALLOWED_MIME_TYPES:
         raise serializers.ValidationError(
             f"{field_label}: invalid content type '{content_type}'."
         )
 
-    # 3. Size check
     if value.size > MAX_FILE_SIZE_BYTES:
         raise serializers.ValidationError(
             f"{field_label}: file size must not exceed {MAX_FILE_SIZE_MB} MB "
@@ -102,7 +71,6 @@ def _validate_file(value, field_label: str):
         )
 
     return value
-
 
 def _validate_phone(value: str, field_label: str = "Phone number") -> str:
     value = value.strip()
@@ -114,14 +82,12 @@ def _validate_phone(value: str, field_label: str = "Phone number") -> str:
         )
     return value
 
-
 def _validate_percentage(value: float, field_label: str = "Percentage") -> float:
     if not (0.0 <= value <= 100.0):
         raise serializers.ValidationError(
             f"{field_label} must be between 0.00 and 100.00."
         )
     return value
-
 
 def _validate_year(value: int, field_label: str = "Year") -> int:
     current_year = timezone.now().year
@@ -131,9 +97,7 @@ def _validate_year(value: int, field_label: str = "Year") -> int:
         )
     return value
 
-
 def _parse_date_string(value: Any, label: str) -> date:
-    """Parse ISO date string (YYYY-MM-DD), datetime, or pass through a date object."""
     if isinstance(value, datetime):
         return value.date()
     if isinstance(value, date):
@@ -148,11 +112,6 @@ def _parse_date_string(value: Any, label: str) -> date:
             f"{label} must be a valid date in YYYY-MM-DD format."
         )
 
-
-# ------------------------------------------------------------------ #
-#  Education entry validation                                          #
-# ------------------------------------------------------------------ #
-
 EDUCATION_REQUIRED_FIELDS = [
     "examination_name",
     "school_college",
@@ -163,9 +122,7 @@ EDUCATION_REQUIRED_FIELDS = [
     "percentage",
 ]
 
-
 def _validate_education_entry(entry: Any, index: int) -> dict:
-    """Validate and clean a single education JSON entry."""
     prefix = f"education[{index}]"
 
     if not isinstance(entry, dict):
@@ -173,7 +130,6 @@ def _validate_education_entry(entry: Any, index: int) -> dict:
             {prefix: "Each education entry must be a JSON object."}
         )
 
-    # Collect all missing-field errors at once
     errors: dict = {}
     for field in EDUCATION_REQUIRED_FIELDS:
         val = entry.get(field)
@@ -183,7 +139,6 @@ def _validate_education_entry(entry: Any, index: int) -> dict:
     if errors:
         raise serializers.ValidationError({prefix: errors})
 
-    # year_of_passing
     try:
         year = int(entry["year_of_passing"])
     except (ValueError, TypeError):
@@ -195,7 +150,6 @@ def _validate_education_entry(entry: Any, index: int) -> dict:
     except serializers.ValidationError as exc:
         raise serializers.ValidationError({f"{prefix}.year_of_passing": exc.detail})
 
-    # percentage
     try:
         pct = float(entry["percentage"])
     except (ValueError, TypeError):
@@ -207,7 +161,6 @@ def _validate_education_entry(entry: Any, index: int) -> dict:
     except serializers.ValidationError as exc:
         raise serializers.ValidationError({f"{prefix}.percentage": exc.detail})
 
-    # division — normalise to Title Case
     division_raw: str = str(entry.get("division", "")).strip().title()
     if division_raw not in VALID_DIVISIONS:
         raise serializers.ValidationError(
@@ -220,7 +173,6 @@ def _validate_education_entry(entry: Any, index: int) -> dict:
         )
     entry["division"] = division_raw
 
-    # Strip + max-length check on string fields
     for field in ("examination_name", "school_college", "board_university", "medium"):
         entry[field] = str(entry[field]).strip()
         if len(entry[field]) > 300:
@@ -230,16 +182,9 @@ def _validate_education_entry(entry: Any, index: int) -> dict:
 
     return entry
 
-
-# ------------------------------------------------------------------ #
-#  Experience entry validation                                         #
-# ------------------------------------------------------------------ #
-
 EXPERIENCE_REQUIRED_FIELDS = ("organization", "designation", "from_date", "job_profile")
 
-
 def _validate_experience_entry(entry: Any, index: int) -> dict:
-    """Validate and clean a single experience JSON entry."""
     prefix = f"experience[{index}]"
 
     if not isinstance(entry, dict):
@@ -247,7 +192,6 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
             {prefix: "Each experience entry must be a JSON object."}
         )
 
-    # Collect missing required fields safely
     errors: dict = {}
     for field in EXPERIENCE_REQUIRED_FIELDS:
         if _is_blank(entry.get(field)):
@@ -256,7 +200,6 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
     if errors:
         raise serializers.ValidationError({prefix: errors})
 
-    # from_date
     try:
         from_date = _parse_date_string(entry["from_date"], "from_date")
     except serializers.ValidationError as exc:
@@ -268,7 +211,6 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
         )
     entry["from_date"] = from_date.isoformat()
 
-    # to_date — optional; null/missing means currently employed
     to_date_raw = entry.get("to_date")
     if not _is_blank(to_date_raw):
         try:
@@ -285,9 +227,8 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
             )
         entry["to_date"] = to_date.isoformat()
     else:
-        entry["to_date"] = None  # normalise missing / null
+        entry["to_date"] = None 
 
-    # Strip + max-length check on string fields
     for field in ("organization", "designation", "job_profile"):
         entry[field] = str(entry[field]).strip()
         if len(entry[field]) > 500:
@@ -295,7 +236,6 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
                 {f"{prefix}.{field}": "Must not exceed 500 characters."}
             )
 
-    # last_salary — optional numeric string
     raw_salary = str(entry.get("last_salary") or "").strip()
     if raw_salary:
         if not re.match(r"^\d{1,10}(\.\d{1,2})?$", raw_salary):
@@ -309,13 +249,7 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
 
     return entry
 
-
-# ------------------------------------------------------------------ #
-#  Reference entry validation                                          #
-# ------------------------------------------------------------------ #
-
 def _validate_reference_entry(entry: Any, index: int) -> dict:
-    """Validate and clean a single reference JSON entry."""
     prefix = f"references[{index}]"
 
     if not isinstance(entry, dict):
@@ -352,21 +286,11 @@ def _validate_reference_entry(entry: Any, index: int) -> dict:
     entry["contact_number"] = contact
     return entry
 
-
-# ------------------------------------------------------------------ #
-#  Document serializer                                                 #
-# ------------------------------------------------------------------ #
-
 class StaffApplicationDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = StaffApplicationDocument
         fields = "__all__"
         read_only_fields = ("uploaded_at", "application")
-
-
-# ------------------------------------------------------------------ #
-#  Main application serializer                                         #
-# ------------------------------------------------------------------ #
 
 class StaffApplicationSerializer(serializers.ModelSerializer):
     additional_documents = StaffApplicationDocumentSerializer(many=True, read_only=True)
@@ -379,10 +303,6 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, obj) -> str:
         return obj.full_name
-
-    # ---------------------------------------------------------------- #
-    #  Field-level validators                                           #
-    # ---------------------------------------------------------------- #
 
     def validate_post_applied_for(self, value: str) -> str:
         value = value.strip()
@@ -554,8 +474,6 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
             )
         return value
 
-    # ── File validators ──────────────────────────────────────────── #
-
     def validate_photograph(self, value):
         if value is None:
             return value
@@ -580,10 +498,6 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
     def validate_attach_experience_certs(self, v): return _validate_file(v, "Experience Certificate")
     def validate_attach_fitness_cert(self, value): return _validate_file(value, "Fitness Certificate")
     def validate_attach_photos(self, value):       return _validate_file(value, "Photos attachment")
-
-    # ---------------------------------------------------------------- #
-    #  JSON array validators                                            #
-    # ---------------------------------------------------------------- #
 
     def validate_education(self, value) -> list:
         if not isinstance(value, list):
@@ -618,22 +532,16 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A maximum of 5 references is allowed.")
         return [_validate_reference_entry(entry, i) for i, entry in enumerate(value)]
 
-    # ---------------------------------------------------------------- #
-    #  Cross-field (object-level) validation                            #
-    # ---------------------------------------------------------------- #
-
     def validate(self, data: dict) -> dict:
         instance = self.instance
 
         def _get(field, default=None):
-            """Return incoming value, falling back to the existing instance."""
             if field in data:
                 return data[field]
             if instance is not None:
                 return getattr(instance, field, default)
             return default
 
-        # ── 1. Marital status ────────────────────────────────────── #
         marital_status   = _get("marital_status", "")
         date_of_marriage = _get("date_of_marriage")
         spouse_name      = _get("spouse_name", "")
@@ -678,7 +586,6 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
                         "date_of_marriage": "Applicant was under 18 at the time of marriage."
                     })
 
-        # ── 2. EPF ──────────────────────────────────────────────── #
         epf_member = _get("epf_member", False)
         epf_number = (_get("epf_number") or "").strip().upper()
 
@@ -689,7 +596,6 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
         if not epf_member:
             data["epf_number"] = ""
 
-        # ── 3. Declaration ───────────────────────────────────────── #
         declaration_accepted = _get("declaration_accepted", False)
         declaration_date     = _get("declaration_date")
 
@@ -706,7 +612,6 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
                 )
             })
 
-        # ── 4. Education: duplicate year + chronological order ───── #
         education = _get("education", [])
 
         if isinstance(education, list) and len(education) > 1:
@@ -727,7 +632,6 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
                     )
                 })
 
-        # ── 5. Experience: date-overlap check ────────────────────── #
         experience = _get("experience", [])
 
         if isinstance(experience, list) and len(experience) > 1:
@@ -745,8 +649,6 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
                     continue
 
                 td_raw = exp.get("to_date")
-                # Open-ended current job uses far-future sentinel (not today,
-                # which would wrongly block two simultaneous ongoing jobs)
                 td = (
                     date.fromisoformat(str(td_raw))
                     if td_raw
