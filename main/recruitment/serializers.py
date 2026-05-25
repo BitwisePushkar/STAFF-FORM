@@ -182,7 +182,7 @@ def _validate_education_entry(entry: Any, index: int) -> dict:
 
     return entry
 
-EXPERIENCE_REQUIRED_FIELDS = ("organization", "designation", "from_date", "job_profile")
+EXPERIENCE_REQUIRED_FIELDS = ("organization", "designation", "from_date", "to_date", "job_profile", "last_salary")
 
 def _validate_experience_entry(entry: Any, index: int) -> dict:
     prefix = f"experience[{index}]"
@@ -212,22 +212,19 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
     entry["from_date"] = from_date.isoformat()
 
     to_date_raw = entry.get("to_date")
-    if not _is_blank(to_date_raw):
-        try:
-            to_date = _parse_date_string(to_date_raw, "to_date")
-        except serializers.ValidationError as exc:
-            raise serializers.ValidationError({f"{prefix}.to_date": exc.detail})
-        if to_date < from_date:
-            raise serializers.ValidationError(
-                {f"{prefix}.to_date": "to_date cannot be earlier than from_date."}
-            )
-        if to_date > timezone.now().date():
-            raise serializers.ValidationError(
-                {f"{prefix}.to_date": "to_date cannot be in the future."}
-            )
-        entry["to_date"] = to_date.isoformat()
-    else:
-        entry["to_date"] = None 
+    try:
+        to_date = _parse_date_string(to_date_raw, "to_date")
+    except serializers.ValidationError as exc:
+        raise serializers.ValidationError({f"{prefix}.to_date": exc.detail})
+    if to_date < from_date:
+        raise serializers.ValidationError(
+            {f"{prefix}.to_date": "to_date cannot be earlier than from_date."}
+        )
+    if to_date > timezone.now().date():
+        raise serializers.ValidationError(
+            {f"{prefix}.to_date": "to_date cannot be in the future."}
+        )
+    entry["to_date"] = to_date.isoformat() 
 
     for field in ("organization", "designation", "job_profile"):
         entry[field] = str(entry[field]).strip()
@@ -237,14 +234,13 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
             )
 
     raw_salary = str(entry.get("last_salary") or "").strip()
-    if raw_salary:
-        if not re.match(r"^\d{1,10}(\.\d{1,2})?$", raw_salary):
-            raise serializers.ValidationError({
-                f"{prefix}.last_salary": (
-                    "Salary must be a valid positive number with up to 2 decimal places "
-                    "(e.g. 50000 or 50000.50)."
-                )
-            })
+    if not re.match(r"^\d{1,10}(\.\d{1,2})?$", raw_salary):
+        raise serializers.ValidationError({
+            f"{prefix}.last_salary": (
+                "Salary must be a valid positive number with up to 2 decimal places "
+                "(e.g. 50000 or 50000.50)."
+            )
+        })
     entry["last_salary"] = raw_salary
 
     return entry
