@@ -8,6 +8,15 @@ from .models import StaffApplication, StaffApplicationDocument
 PHONE_RE = re.compile(r"^\d{10}$")
 EPF_UAN_RE = re.compile(r"^\d{12}$")
 EPF_ACCOUNT_RE = re.compile(r"^[A-Z]{2}/[A-Z]{3,10}/\d{1,7}/\d{1,3}/\d{1,7}$")
+EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+HTML_TAG_RE = re.compile(r"<[^>]+>")
+FILE_SIGNATURES = {
+    b"\x25\x50\x44\x46": "application/pdf",
+    b"\xff\xd8\xff": "image/jpeg",
+    b"\x89\x50\x4e\x47": "image/png",
+    b"\xd0\xcf\x11\xe0": "application/msword",
+    b"\x50\x4b\x03\x04": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
 ALLOWED_FILE_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"}
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 ALLOWED_MIME_TYPES = {
@@ -29,6 +38,9 @@ def _is_blank(value: Any) -> bool:
     if isinstance(value, str):
         return not value.strip()
     return False
+
+def _strip_html(value: str) -> str:
+    return HTML_TAG_RE.sub("", value)
 
 def _calculate_age(dob: date, today: date) -> int:
     return today.year - dob.year - (
@@ -69,6 +81,17 @@ def _validate_file(value, field_label: str):
             f"{field_label}: file size must not exceed {MAX_FILE_SIZE_MB} MB "
             f"(uploaded: {value.size / (1024 * 1024):.1f} MB)."
         )
+
+    pos = value.tell()
+    header = value.read(8)
+    value.seek(pos)
+    if header:
+        matched = any(header.startswith(sig) for sig in FILE_SIGNATURES)
+        if not matched:
+            raise serializers.ValidationError(
+                f"{field_label}: file content does not match a supported format. "
+                f"Allowed: PDF, JPG, PNG, DOC, DOCX."
+            )
 
     return value
 
@@ -174,7 +197,7 @@ def _validate_education_entry(entry: Any, index: int) -> dict:
     entry["division"] = division_raw
 
     for field in ("examination_name", "school_college", "board_university", "medium"):
-        entry[field] = str(entry[field]).strip()
+        entry[field] = _strip_html(str(entry[field]).strip())
         if len(entry[field]) > 300:
             raise serializers.ValidationError(
                 {f"{prefix}.{field}": "Must not exceed 300 characters."}
@@ -227,7 +250,7 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
     entry["to_date"] = to_date.isoformat() 
 
     for field in ("organization", "designation", "job_profile"):
-        entry[field] = str(entry[field]).strip()
+        entry[field] = _strip_html(str(entry[field]).strip())
         if len(entry[field]) > 500:
             raise serializers.ValidationError(
                 {f"{prefix}.{field}": "Must not exceed 500 characters."}
@@ -267,13 +290,13 @@ def _validate_reference_entry(entry: Any, index: int) -> dict:
             {f"{prefix}.contact_number": "Must be exactly 10 digits (digits only)."}
         )
 
-    entry["name"] = str(entry["name"]).strip()
+    entry["name"] = _strip_html(str(entry["name"]).strip())
     if len(entry["name"]) > 200:
         raise serializers.ValidationError(
             {f"{prefix}.name": "Must not exceed 200 characters."}
         )
 
-    entry["address"] = str(entry["address"]).strip()
+    entry["address"] = _strip_html(str(entry["address"]).strip())
     if len(entry["address"]) > 500:
         raise serializers.ValidationError(
             {f"{prefix}.address": "Must not exceed 500 characters."}
@@ -374,6 +397,10 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
         value = value.strip().lower()
         if not value:
             raise serializers.ValidationError("Email cannot be blank.")
+        if not EMAIL_RE.match(value):
+            raise serializers.ValidationError(
+                "Enter a valid email address (e.g. name@example.com)."
+            )
         qs = StaffApplication.objects.filter(email=value)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
@@ -401,23 +428,29 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
         return value
 
     def validate_correspondence_address_line1(self, value: str) -> str:
-        value = value.strip()
+        value = _strip_html(value.strip())
         if not value:
             raise serializers.ValidationError(
                 "Correspondence address line 1 cannot be blank."
             )
         return value
 
+    def validate_correspondence_address_line2(self, value: str) -> str:
+        return _strip_html(value.strip())
+
     def validate_permanent_address_line1(self, value: str) -> str:
-        value = value.strip()
+        value = _strip_html(value.strip())
         if not value:
             raise serializers.ValidationError(
                 "Permanent address line 1 cannot be blank."
             )
         return value
 
+    def validate_permanent_address_line2(self, value: str) -> str:
+        return _strip_html(value.strip())
+
     def validate_why_suitable(self, value: str) -> str:
-        value = value.strip()
+        value = _strip_html(value.strip())
         if not value:
             raise serializers.ValidationError("This field cannot be blank.")
         if len(value) < 30:
@@ -431,7 +464,7 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
         return value
 
     def validate_extra_curricular(self, value: str) -> str:
-        value = value.strip()
+        value = _strip_html(value.strip())
         if len(value) > 3000:
             raise serializers.ValidationError(
                 "Extra-curricular details must not exceed 3000 characters."
@@ -458,6 +491,15 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "EPF number must be a 12-digit UAN or a valid account number "
                 "(e.g. MH/AKGEC/12345/123/1234567)."
+            )
+        return value
+
+    def validate_marital_status(self, value: str) -> str:
+        value = value.strip()
+        allowed = {choice[0] for choice in StaffApplication.MARITAL_STATUS_CHOICES}
+        if value not in allowed:
+            raise serializers.ValidationError(
+                f"Invalid marital status. Allowed values are: {', '.join(sorted(allowed))}."
             )
         return value
 

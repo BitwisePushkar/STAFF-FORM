@@ -1,4 +1,8 @@
+import csv
+import json
+
 from django.contrib import admin
+from django.http import HttpResponse
 from django.utils.html import format_html
 
 from .models import StaffApplication, StaffApplicationDocument
@@ -7,6 +11,41 @@ class StaffApplicationDocumentInline(admin.TabularInline):
     model = StaffApplicationDocument
     extra = 1
     readonly_fields = ("uploaded_at",)
+
+def export_applications_csv(modeladmin, request, queryset):
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="staff_applications.csv"'
+
+    fields = [
+        "id", "post_applied_for", "first_name", "middle_name", "surname",
+        "father_name", "spouse_name", "category", "mobile_number", "email",
+        "correspondence_address_line1", "correspondence_address_line2",
+        "permanent_address_line1", "permanent_address_line2",
+        "dob", "marital_status", "date_of_marriage",
+        "education", "experience", "extra_curricular", "why_suitable",
+        "epf_member", "epf_number", "references",
+        "declaration_accepted", "declaration_date",
+        "created_at", "updated_at",
+    ]
+
+    writer = csv.writer(response)
+    writer.writerow(fields)
+
+    for app in queryset.order_by("-created_at"):
+        row = []
+        for field in fields:
+            value = getattr(app, field)
+            if isinstance(value, (list, dict)):
+                value = json.dumps(value, default=str)
+            elif hasattr(value, "isoformat"):
+                value = value.isoformat()
+            row.append(value)
+        writer.writerow(row)
+
+    return response
+
+export_applications_csv.short_description = "Download selected applications as CSV"
+
 
 @admin.register(StaffApplication)
 class StaffApplicationAdmin(admin.ModelAdmin):
@@ -22,6 +61,7 @@ class StaffApplicationAdmin(admin.ModelAdmin):
     search_fields = ("first_name", "surname", "email", "mobile_number", "post_applied_for")
     list_filter = ("post_applied_for", "category", "marital_status", "epf_member", "created_at")
     readonly_fields = ("created_at", "updated_at", "full_name_display")
+    actions = [export_applications_csv]
     inlines = [StaffApplicationDocumentInline]
 
     fieldsets = (
