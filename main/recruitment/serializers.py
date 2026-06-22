@@ -32,6 +32,47 @@ VALID_DIVISIONS = {"First", "Second", "Third", "Pass", "Distinction", "Grade"}
 MIN_AGE_YEARS = 18
 MAX_AGE_YEARS = 65
 
+EDUCATION_ATTACHMENT_MAP = {
+    "attach_10th": {
+        "10th", "10", "x", "ssc", "matric", "matriculation",
+        "high school", "class 10", "class 10th", "secondary",
+    },
+    "attach_12th": {
+        "12th", "12", "xii", "hsc", "intermediate",
+        "senior secondary", "class 12", "class 12th",
+    },
+    "attach_diploma": {
+        "diploma",
+    },
+    "attach_graduation": {
+        "graduation", "bachelor", "b.tech", "btech", "b.e", "be",
+        "b.sc", "bsc", "b.com", "bcom", "b.a", "ba", "bca", "bba",
+        "b.arch", "b.pharm", "llb",
+    },
+    "attach_post_graduation": {
+        "post graduation", "post-graduation", "postgraduation",
+        "master", "m.tech", "mtech", "m.e", "me", "m.sc", "msc",
+        "m.com", "mcom", "m.a", "ma", "mca", "mba", "m.arch",
+        "m.pharm", "pg", "llm", "ph.d", "phd", "doctorate",
+    },
+}
+
+ATTACHMENT_LABELS = {
+    "attach_10th": "10th Marksheet",
+    "attach_12th": "12th Marksheet",
+    "attach_diploma": "Diploma certificate",
+    "attach_graduation": "Graduation certificate",
+    "attach_post_graduation": "Post Graduation certificate",
+}
+
+def _match_education_level(examination_name: str) -> set[str]:
+    name = examination_name.lower().strip()
+    matched = set()
+    for attach_field, keywords in EDUCATION_ATTACHMENT_MAP.items():
+        if any(kw in name for kw in keywords):
+            matched.add(attach_field)
+    return matched
+
 def _is_blank(value: Any) -> bool:
     if value is None:
         return True
@@ -157,10 +198,10 @@ def _validate_education_entry(entry: Any, index: int) -> dict:
     for field in EDUCATION_REQUIRED_FIELDS:
         val = entry.get(field)
         if val is None or (isinstance(val, str) and not val.strip()):
-            errors[field] = "This field is required."
+            errors[f"{prefix}.{field}"] = "This field is required."
 
     if errors:
-        raise serializers.ValidationError({prefix: errors})
+        raise serializers.ValidationError(errors)
 
     try:
         year = int(entry["year_of_passing"])
@@ -218,10 +259,10 @@ def _validate_experience_entry(entry: Any, index: int) -> dict:
     errors: dict = {}
     for field in EXPERIENCE_REQUIRED_FIELDS:
         if _is_blank(entry.get(field)):
-            errors[field] = "This field is required."
+            errors[f"{prefix}.{field}"] = "This field is required."
 
     if errors:
-        raise serializers.ValidationError({prefix: errors})
+        raise serializers.ValidationError(errors)
 
     try:
         from_date = _parse_date_string(entry["from_date"], "from_date")
@@ -279,10 +320,10 @@ def _validate_reference_entry(entry: Any, index: int) -> dict:
     errors: dict = {}
     for field in ("name", "address", "contact_number"):
         if _is_blank(entry.get(field)):
-            errors[field] = "This field is required."
+            errors[f"{prefix}.{field}"] = "This field is required."
 
     if errors:
-        raise serializers.ValidationError({prefix: errors})
+        raise serializers.ValidationError(errors)
 
     contact = str(entry["contact_number"]).strip()
     if not PHONE_RE.match(contact):
@@ -551,6 +592,8 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
         return [_validate_education_entry(entry, i) for i, entry in enumerate(value)]
 
     def validate_experience(self, value) -> list:
+        if value is None:
+            return []
         if not isinstance(value, list):
             raise serializers.ValidationError(
                 "Experience must be provided as a JSON array."
@@ -560,12 +603,12 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
         return [_validate_experience_entry(entry, i) for i, entry in enumerate(value)]
 
     def validate_references(self, value) -> list:
+        if value is None:
+            return []
         if not isinstance(value, list):
             raise serializers.ValidationError(
                 "References must be provided as a JSON array."
             )
-        if len(value) < 1:
-            raise serializers.ValidationError("At least one reference is required.")
         if len(value) > 5:
             raise serializers.ValidationError("A maximum of 5 references is allowed.")
         return [_validate_reference_entry(entry, i) for i, entry in enumerate(value)]
@@ -669,6 +712,21 @@ class StaffApplicationSerializer(serializers.ModelSerializer):
                         "Education entries must be in chronological order (oldest first)."
                     )
                 })
+
+        if isinstance(education, list):
+            required_attachments: set[str] = set()
+            for entry in education:
+                if isinstance(entry, dict) and entry.get("examination_name"):
+                    required_attachments |= _match_education_level(str(entry["examination_name"]))
+
+            missing = {}
+            for attach_field in required_attachments:
+                file_value = _get(attach_field)
+                if not file_value:
+                    label = ATTACHMENT_LABELS[attach_field]
+                    missing[attach_field] = f"{label} upload is required based on your education entries."
+            if missing:
+                raise serializers.ValidationError(missing)
 
         experience = _get("experience", [])
 
