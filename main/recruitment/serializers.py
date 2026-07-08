@@ -148,7 +148,7 @@ def _validate_file(value, field_label: str):
         )
 
     content_type = getattr(value, "content_type", None)
-    if content_type and content_type not in ALLOWED_MIME_TYPES:
+    if content_type and content_type not in ALLOWED_MIME_TYPES and content_type != "application/octet-stream":
         raise serializers.ValidationError(
             f"{field_label}: invalid content type '{content_type}'."
         )
