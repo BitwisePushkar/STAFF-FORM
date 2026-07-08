@@ -14,17 +14,53 @@ FILE_SIGNATURES = {
     b"\x25\x50\x44\x46": "application/pdf",
     b"\xff\xd8\xff": "image/jpeg",
     b"\x89\x50\x4e\x47": "image/png",
+    b"RIFF": "image/webp",
+    b"GIF8": "image/gif",
+    b"\x49\x49\x2a\x00": "image/tiff",
+    b"\x4d\x4d\x00\x2a": "image/tiff",
+    b"\x00\x00\x01\x00": "image/x-icon",
+    b"\x42\x4d": "image/bmp",
     b"\xd0\xcf\x11\xe0": "application/msword",
-    b"\x50\x4b\x03\x04": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    b"\x50\x4b\x03\x04": "application/zip",
 }
-ALLOWED_FILE_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"}
-ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+ALLOWED_IMAGE_EXTENSIONS = {
+    ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp",
+    ".tiff", ".tif", ".svg", ".ico", ".heic", ".heif", ".avif",
+}
+ALLOWED_FILE_EXTENSIONS = {
+    ".pdf",
+    ".doc", ".docx",
+    ".xls", ".xlsx",
+    ".ppt", ".pptx",
+    ".odt", ".ods", ".odp",
+    ".txt", ".rtf", ".csv",
+} | ALLOWED_IMAGE_EXTENSIONS
 ALLOWED_MIME_TYPES = {
     "application/pdf",
     "image/jpeg",
     "image/png",
+    "image/webp",
+    "image/gif",
+    "image/bmp",
+    "image/tiff",
+    "image/svg+xml",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "image/heic",
+    "image/heif",
+    "image/avif",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.presentation",
+    "text/plain",
+    "text/csv",
+    "application/rtf",
 }
 MAX_FILE_SIZE_MB = 5
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -130,8 +166,7 @@ def _validate_file(value, field_label: str):
         matched = any(header.startswith(sig) for sig in FILE_SIGNATURES)
         if not matched:
             raise serializers.ValidationError(
-                f"{field_label}: file content does not match a supported format. "
-                f"Allowed: PDF, JPG, PNG, DOC, DOCX."
+                f"{field_label}: file content does not match a supported format."
             )
 
     return value
